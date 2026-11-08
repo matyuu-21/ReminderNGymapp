@@ -9,7 +9,7 @@ import com.example.remindergym.reminders.ReminderDao
 import com.example.remindergym.gym.Workout
 import com.example.remindergym.gym.WorkoutDao
 
-@Database(entities = [Reminder::class, Workout::class], version = 4)
+@Database(entities = [Reminder::class, Workout::class], version = 5)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun reminderDao(): ReminderDao
     abstract fun workoutDao(): WorkoutDao

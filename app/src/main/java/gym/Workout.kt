@@ -10,5 +10,6 @@ data class Workout (
     val sets: Int,
     val reps: Int,
     val weight: Double,
-    val rir: Int
+    val rir: Int,
+    val date: Long = System.currentTimeMillis()
 )

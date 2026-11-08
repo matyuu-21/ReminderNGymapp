@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WorkoutDao {
-    @Query("Select * FROM workouts")
+    @Query("Select * FROM workouts ORDER BY date DESC")
     fun getAll(): Flow<List<Workout>>
 
     @Insert

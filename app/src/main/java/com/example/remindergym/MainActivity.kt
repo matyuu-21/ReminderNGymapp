@@ -47,10 +47,8 @@ import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.mutableIntStateOf
 import android.Manifest
-import android.graphics.Outline
 import android.os.Build
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.ui.platform.LocalContext
 import com.example.remindergym.data.AppDatabase
 import com.example.remindergym.reminders.Reminder
 import com.example.remindergym.notifications.createNotificationChannel
@@ -62,6 +60,9 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import com.example.remindergym.gym.GymScreen
 import com.example.remindergym.gym.Workout
+import androidx.compose.material.icons.filled.Info
+import com.example.remindergym.gym.ProgressScreen
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -112,11 +113,17 @@ class MainActivity : ComponentActivity() {
                                 icon = { Icon(Icons.Default.Star, contentDescription = null) },
                                 label = { Text("Gym") }
                             )
+                            NavigationBarItem(
+                                selected = selectedTab == 2,
+                                onClick = {selectedTab = 2},
+                                icon = { Icon(Icons.Default.Info, contentDescription = null) },
+                                label = {Text("Progress")}
+                            )
                         }
                     }
                 ) { innerPadding ->
-                    if (selectedTab == 0) {
-                        ReminderHomescreen(
+                    when (selectedTab) {
+                        0 -> ReminderHomescreen(
                             reminders = reminders,
                             onAdd = { title, hour, minute ->
                                 scope.launch {
@@ -141,8 +148,7 @@ class MainActivity : ComponentActivity() {
                             },
                             modifier = Modifier.padding(innerPadding)
                         )
-                    } else {
-                        GymScreen(
+                        1 -> GymScreen(
                             workouts = workouts,
                             onAdd = { exercise, sets, reps, weight, rir ->
                                 scope.launch {
@@ -160,6 +166,11 @@ class MainActivity : ComponentActivity() {
                             onDelete = { workout ->
                                 scope.launch { workoutDao.delete(workout) }
                             },
+                            modifier = Modifier.padding(innerPadding)
+                        )
+
+                        else -> ProgressScreen(
+                            workouts = workouts,
                             modifier = Modifier.padding(innerPadding)
                         )
                     }

@@ -63,19 +63,23 @@ fun scheduleReminder(context: Context, reminder: Reminder) {
     alarmManager.setExactAndAllowWhileIdle(
         AlarmManager.RTC_WAKEUP,
         calendar.timeInMillis,
-        reminderIntent(context, reminder.id, reminder.title)
+        reminderIntent(context, reminder)
     )
 
 }
 
 fun cancelReminder(context: Context, reminder: Reminder) {
     val alarmManager = context.getSystemService(AlarmManager::class.java)
-    alarmManager.cancel(reminderIntent(context, reminder.id, reminder.title))
+    alarmManager.cancel(reminderIntent(context, reminder))
 }
-private fun reminderIntent(context: Context, id: Int, title: String): PendingIntent {
-    val intent = Intent(context, ReminderReceiver::class.java).putExtra("title", title)
+private fun reminderIntent(context: Context, reminder: Reminder): PendingIntent {
+    val intent = Intent(context, ReminderReceiver::class.java)
+        .putExtra("id", reminder.id)
+        .putExtra("title", reminder.title)
+        .putExtra("hour", reminder.hour)
+        .putExtra("minute", reminder.minute)
     return PendingIntent.getBroadcast(
-        context, id, intent,
+        context, reminder.id, intent,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 }

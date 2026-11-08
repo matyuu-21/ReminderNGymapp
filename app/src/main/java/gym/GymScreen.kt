@@ -29,6 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.TextButton
+import java.time.ZoneId
+import java.time.Instant
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun GymScreen(
@@ -37,11 +41,24 @@ fun GymScreen(
     onDelete: (Workout) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var exercise by remember {mutableStateOf("")}
-    var sets by remember {mutableStateOf("")}
-    var reps by remember {mutableStateOf("")}
-    var weight by remember {mutableStateOf("")}
-    var rir by remember {mutableStateOf("")}
+    var exercise by remember { mutableStateOf("") }
+    var sets by remember { mutableStateOf("") }
+    var reps by remember { mutableStateOf("") }
+    var weight by remember { mutableStateOf("") }
+    var rir by remember { mutableStateOf("") }
+
+    val suggestions = if (exercise.isBlank()) {
+        emptyList()
+    } else {
+        commonExercises
+            .filter {
+                it.contains(
+                    exercise,
+                    ignoreCase = true
+                ) && !it.equals(exercise, ignoreCase = true)
+            }
+            .take(4)
+    }
 
     Column(
         modifier = Modifier
@@ -61,94 +78,113 @@ fun GymScreen(
             ) {
                 OutlinedTextField(
                     value = exercise,
-                    onValueChange =  {exercise = it},
-                    label = {Text("Exercise")},
+                    onValueChange = { exercise = it },
+                    label = { Text("Exercise") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Row(horizontalArrangement =  Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = sets,
-                        onValueChange = {sets = it},
-                        label = {Text("Sets")},
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = reps,
-                        onValueChange = {reps = it},
-                        label = {Text("Reps")},
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = weight,
-                        onValueChange = {weight = it},
-                        label = {Text("Kg")},
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = rir,
-                        onValueChange = {rir = it},
-                        label = {Text("RIR")},
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                Button(
-                    onClick = {
-                        val s = sets.toIntOrNull()
-                        val r = reps.toIntOrNull()
-                        val w = weight.toDoubleOrNull()
-                        val rr = rir.toIntOrNull()
-
-                        if (exercise.isNotBlank() && s != null && r != null && w != null && rr != null ) {
-                            onAdd(exercise, s, r, w, rr)
-                            exercise = ""
-                            sets = ""
-                            reps = ""
-                            weight = ""
-                            rir = ""
+                Column {
+                    suggestions.forEach {name ->
+                        TextButton(onClick = { exercise = name }) {
+                            Text(name)
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Log Workout")
+                    }
+                }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = sets,
+                            onValueChange = { sets = it },
+                            label = { Text("Sets") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = reps,
+                            onValueChange = { reps = it },
+                            label = { Text("Reps") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = weight,
+                            onValueChange = { weight = it },
+                            label = { Text("Kg") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = rir,
+                            onValueChange = { rir = it },
+                            label = { Text("RIR") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            val s = sets.toIntOrNull()
+                            val r = reps.toIntOrNull()
+                            val w = weight.toDoubleOrNull()
+                            val rr = rir.toIntOrNull()
+
+                            if (exercise.isNotBlank() && s != null && r != null && w != null && rr != null) {
+                                onAdd(exercise, s, r, w, rr)
+                                exercise = ""
+                                sets = ""
+                                reps = ""
+                                weight = ""
+                                rir = ""
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Log Workout")
+                    }
                 }
             }
-        }
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(workouts, key = {it.id}) {workout ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = workout.exercise,
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = "${workout.sets} x ${workout.reps} at ${workout.weight} kg (RIR ${workout.rir}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        IconButton(onClick = {onDelete(workout)}) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete")
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(workouts, key = { it.id }) { workout ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = workout.exercise,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = "${workout.sets} x ${workout.reps} at ${workout.weight} kg (RIR ${workout.rir}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = formatDate(workout.date),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(onClick = { onDelete(workout) }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete")
+                            }
                         }
                     }
                 }
             }
         }
     }
+
+fun formatDate(millis: Long): String {
+    val date = Instant.ofEpochMilli(millis)
+        .atZone(ZoneId.systemDefault())
+        .toLocalDate()
+    return date.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
 }
