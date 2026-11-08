@@ -2,6 +2,9 @@
 
 A simple Android app I made to keep track of my gym reminders and workouts. Everything stays on your phone, with no account and no internet needed.
 
+## How to Install
+- Just download the apk file and boom
+
 ## Features
 
 - **Reminders:** set a time, pick the days it repeats, and get a notification even when the app is closed
