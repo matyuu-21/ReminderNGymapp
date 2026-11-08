@@ -12,11 +12,12 @@ class ReminderReceiver : BroadcastReceiver() {
         val title = intent.getStringExtra("title") ?: "Reminder"
         val hour = intent.getIntExtra("hour", -1)
         val minute = intent.getIntExtra("minute", 0)
+        val days = intent.getStringExtra("days") ?: "1234567"
 
         showNotification(context, title, "Time for your reminder!")
 
         if (id != -1 && hour != -1) {
-            scheduleReminder(context, Reminder(id, title, hour, minute))
+            scheduleReminder(context, Reminder(id, title, hour, minute, days))
         }
     }
 }

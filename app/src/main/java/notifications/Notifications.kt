@@ -11,10 +11,13 @@ import android.app.PendingIntent
 import android.os.Build
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import java.util.Calendar
 import android.content.Intent
 import com.example.remindergym.reminders.Reminder
 import com.example.remindergym.reminders.ReminderReceiver
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+
 
 
 const val CHANNEL_ID = "reminders"
@@ -49,25 +52,25 @@ fun showNotification(context: Context, title: String, text: String) {
 }
 
 fun scheduleReminder(context: Context, reminder: Reminder) {
+    val days = reminder.days.map {it.digitToInt() }.filter {it in 1..7}
+    if (days.isEmpty()) return
+
     val alarmManager = context.getSystemService(AlarmManager::class.java)
 
-    val calendar = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, reminder.hour)
-        set(Calendar.MINUTE, reminder.minute)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-
-        if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR,1 )
+    val now = LocalDateTime.now()
+    var next = LocalDate.now().atTime(reminder.hour, reminder.minute)
+    while (!next.isAfter(now) || next.dayOfWeek.value !in days){
+        next = next.plusDays(1)
     }
+    val millis = next.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
     alarmManager.setExactAndAllowWhileIdle(
         AlarmManager.RTC_WAKEUP,
-        calendar.timeInMillis,
+        millis,
         reminderIntent(context, reminder)
     )
 
 }
-
 fun cancelReminder(context: Context, reminder: Reminder) {
     val alarmManager = context.getSystemService(AlarmManager::class.java)
     alarmManager.cancel(reminderIntent(context, reminder))
@@ -78,6 +81,7 @@ private fun reminderIntent(context: Context, reminder: Reminder): PendingIntent 
         .putExtra("title", reminder.title)
         .putExtra("hour", reminder.hour)
         .putExtra("minute", reminder.minute)
+        .putExtra("days", reminder.days)
     return PendingIntent.getBroadcast(
         context, reminder.id, intent,
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

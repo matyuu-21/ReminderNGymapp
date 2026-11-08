@@ -49,6 +49,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import android.Manifest
 import android.os.Build
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.shape.CircleShape
 import com.example.remindergym.data.AppDatabase
 import com.example.remindergym.reminders.Reminder
 import com.example.remindergym.notifications.createNotificationChannel
@@ -62,7 +63,11 @@ import com.example.remindergym.gym.GymScreen
 import com.example.remindergym.gym.Workout
 import androidx.compose.material.icons.filled.Info
 import com.example.remindergym.gym.ProgressScreen
-
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.Edit
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -125,19 +130,27 @@ class MainActivity : ComponentActivity() {
                     when (selectedTab) {
                         0 -> ReminderHomescreen(
                             reminders = reminders,
-                            onAdd = { title, hour, minute ->
+                            onAdd = { title, hour, minute, days ->
                                 scope.launch {
                                     val id = dao.insert(
                                         Reminder(
                                             title = title,
                                             hour = hour,
-                                            minute = minute
+                                            minute = minute,
+                                            days = days
                                         )
                                     )
                                     scheduleReminder(
                                         this@MainActivity,
-                                        Reminder(id.toInt(), title, hour, minute)
+                                        Reminder(id.toInt(), title, hour, minute, days)
                                     )
+                                }
+                            },
+                            onEdit = {reminder ->
+                                scope.launch {
+                                    cancelReminder(this@MainActivity, reminder)
+                                    dao.update(reminder)
+                                    scheduleReminder(this@MainActivity, reminder)
                                 }
                             },
                             onDelete = { reminder ->
@@ -185,21 +198,67 @@ fun formatTime(hour: Int, minute: Int): String {
     val hour12 = if (hour % 12 == 0) 12 else hour % 12
     return "%d:%02d %s".format(hour12, minute, amPm)
 }
+fun formatDays(days: String): String{
+    if (days.length == 7) return "Every day"
+    val names = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    return days.map {names[it.digitToInt() - 1] }.joinToString(",")
+}
+
+@Composable
+fun DayPicker(selected: Set<Int>, onToggle: (Int) -> Unit) {
+    val labels = listOf("M", "T", "W", "T", "F", "S", "S")
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        labels.forEachIndexed { index, label ->
+            val day = index + 1
+            val isOn = day in selected
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(
+                        if (isOn) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                        CircleShape
+                    )
+                    .clickable {onToggle(day)},
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    color = if (isOn) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReminderHomescreen(
     reminders: List<Reminder>,
-    onAdd: (String, Int, Int) -> Unit,
+    onAdd: (String, Int, Int, String) -> Unit,
+    onEdit: (Reminder) -> Unit,
     onDelete: (Reminder) -> Unit,
     modifier: Modifier = Modifier
 ) {
-
     var showForm by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<Reminder?>(null) }
     var titleText by remember { mutableStateOf("") }
-    var pickedHour by remember { mutableIntStateOf((-1)) }
-    var pickedMinute by remember{ mutableIntStateOf(0) }
-    var showTimePicker by remember {mutableStateOf(false)}
+    var pickedHour by remember { mutableIntStateOf(-1) }
+    var pickedMinute by remember { mutableIntStateOf(0) }
+    var selectedDays by remember { mutableStateOf(setOf(1, 2, 3, 4, 5, 6, 7)) }
+    var showTimePicker by remember { mutableStateOf(false) }
     val timePickerState = rememberTimePickerState()
+
+    fun closeForm() {
+        titleText = ""
+        pickedHour = -1
+        selectedDays = setOf(1, 2, 3, 4, 5, 6, 7)
+        editing = null
+        showForm = false
+    }
 
     Column(
         modifier = modifier
@@ -219,6 +278,7 @@ fun ReminderHomescreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+
         if (!showForm) {
             Button(
                 onClick = { showForm = true },
@@ -229,9 +289,10 @@ fun ReminderHomescreen(
                 Text("Add reminder")
             }
         }
+
         if (showTimePicker) {
             AlertDialog(
-                onDismissRequest = {showTimePicker = false},
+                onDismissRequest = { showTimePicker = false },
                 confirmButton = {
                     TextButton(onClick = {
                         pickedHour = timePickerState.hour
@@ -242,13 +303,14 @@ fun ReminderHomescreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = {showTimePicker = false}) {
+                    TextButton(onClick = { showTimePicker = false }) {
                         Text("Cancel")
                     }
                 },
-                text = {TimePicker(state = timePickerState)}
+                text = { TimePicker(state = timePickerState) }
             )
         }
+
         if (showForm) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
@@ -263,29 +325,47 @@ fun ReminderHomescreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedButton(
-                        onClick = {showTimePicker = true},
+                        onClick = { showTimePicker = true },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(if (pickedHour < 0) "Pick a time" else formatTime(pickedHour, pickedMinute))
                     }
+                    DayPicker(
+                        selected = selectedDays,
+                        onToggle = { day ->
+                            selectedDays = if (day in selectedDays) selectedDays - day else selectedDays + day
+                        }
+                    )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = {
-                            if (titleText.isNotBlank() && pickedHour >= 0) {
-                                onAdd(titleText, pickedHour, pickedMinute)
-                                titleText = ""
-                                pickedHour = -1
-                                showForm = false
+                            if (titleText.isNotBlank() && pickedHour >= 0 && selectedDays.isNotEmpty()) {
+                                val daysString = selectedDays.sorted().joinToString("")
+                                val current = editing
+                                if (current == null) {
+                                    onAdd(titleText, pickedHour, pickedMinute, daysString)
+                                } else {
+                                    onEdit(
+                                        current.copy(
+                                            title = titleText,
+                                            hour = pickedHour,
+                                            minute = pickedMinute,
+                                            days = daysString
+                                        )
+                                    )
+                                }
+                                closeForm()
                             }
                         }) {
-                            Text("Save")
+                            Text(if (editing == null) "Save" else "Update")
                         }
-                        TextButton(onClick = { showForm = false }) {
+                        TextButton(onClick = { closeForm() }) {
                             Text("Cancel")
                         }
                     }
                 }
             }
         }
+
         if (reminders.isEmpty()) {
             Text(
                 text = "No reminders yet, Add your first one!",
@@ -309,13 +389,26 @@ fun ReminderHomescreen(
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Text(
-                                text = formatTime(reminder.hour, reminder.minute),
+                                text = formatTime(reminder.hour, reminder.minute) +
+                                        " • " + formatDays(reminder.days),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        IconButton(onClick = { onDelete(reminder) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete")
+                        Row {
+                            IconButton(onClick = {
+                                editing = reminder
+                                titleText = reminder.title
+                                pickedHour = reminder.hour
+                                pickedMinute = reminder.minute
+                                selectedDays = reminder.days.map { it.digitToInt() }.toSet()
+                                showForm = true
+                            }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit")
+                            }
+                            IconButton(onClick = { onDelete(reminder) }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete")
+                            }
                         }
                     }
                 }
@@ -323,6 +416,7 @@ fun ReminderHomescreen(
         }
     }
 }
+
 @Preview(showBackground = true)
 @Composable
 fun ReminderHomescreenPreview() {
@@ -330,9 +424,10 @@ fun ReminderHomescreenPreview() {
         ReminderHomescreen(
             reminders = listOf(
                 Reminder(1, "Eat Food", 11, 0),
-                Reminder(2, "Go Gym", 17, 0)
+                Reminder(2, "Go Gym", 17, 0, "135")
             ),
-            onAdd = { _, _, _ -> },
+            onAdd = { _, _, _, _ -> },
+            onEdit = { },
             onDelete = { }
         )
     }
