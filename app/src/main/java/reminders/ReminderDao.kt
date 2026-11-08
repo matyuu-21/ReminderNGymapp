@@ -1,4 +1,4 @@
-package com.example.remindergym
+package com.example.remindergym.reminders
 
 import androidx.room.Dao
 import androidx.room.Delete
@@ -12,7 +12,9 @@ interface ReminderDao {
     fun getAll(): Flow<List<Reminder>>
 
     @Insert
-    suspend fun insert(reminder: Reminder)
+    suspend fun insert(reminder: Reminder): Long
     @Delete
     suspend fun delete(reminder:Reminder)
+
+
 }

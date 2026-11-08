@@ -46,32 +46,123 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.mutableIntStateOf
+import android.Manifest
+import android.graphics.Outline
+import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import com.example.remindergym.data.AppDatabase
+import com.example.remindergym.reminders.Reminder
+import com.example.remindergym.notifications.createNotificationChannel
+import com.example.remindergym.notifications.scheduleReminder
+import com.example.remindergym.notifications.cancelReminder
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import com.example.remindergym.gym.GymScreen
+import com.example.remindergym.gym.Workout
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        createNotificationChannel(this)
 
-        val dao = AppDatabase.getDatabase(this).reminderDao()
+        val permissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { _ ->
+
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        val db = AppDatabase.getDatabase(this)
+        val dao = db.reminderDao()
+        val workoutDao = db.workoutDao()
         val remindersFlow = dao.getAll()
+        val workoutsFlow = workoutDao.getAll()
 
         setContent {
             ReminderGymTheme {
                 val reminders by remindersFlow.collectAsState(initial = emptyList())
+                val workouts by workoutsFlow.collectAsState(initial = emptyList())
                 val scope = rememberCoroutineScope()
+                var selectedTab by remember { mutableStateOf(0) }
 
-
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    ReminderHomescreen(
-                        reminders = reminders,
-                        onAdd = { title, hour, minute ->
-                            scope.launch { dao.insert(Reminder(title = title, hour = hour, minute = minute)) }
-                        },
-                        onDelete = { reminder ->
-                            scope.launch { dao.delete(reminder) }
-                        },
-                        modifier = Modifier.padding(innerPadding)
-                    )
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    bottomBar = {
+                        NavigationBar {
+                            NavigationBarItem(
+                                selected = selectedTab == 0,
+                                onClick = { selectedTab = 0 },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.Notifications,
+                                        contentDescription = null
+                                    )
+                                },
+                                label = { Text("Reminders") }
+                            )
+                            NavigationBarItem(
+                                selected = selectedTab == 1,
+                                onClick = { selectedTab = 1 },
+                                icon = { Icon(Icons.Default.Star, contentDescription = null) },
+                                label = { Text("Gym") }
+                            )
+                        }
+                    }
+                ) { innerPadding ->
+                    if (selectedTab == 0) {
+                        ReminderHomescreen(
+                            reminders = reminders,
+                            onAdd = { title, hour, minute ->
+                                scope.launch {
+                                    val id = dao.insert(
+                                        Reminder(
+                                            title = title,
+                                            hour = hour,
+                                            minute = minute
+                                        )
+                                    )
+                                    scheduleReminder(
+                                        this@MainActivity,
+                                        Reminder(id.toInt(), title, hour, minute)
+                                    )
+                                }
+                            },
+                            onDelete = { reminder ->
+                                scope.launch {
+                                    cancelReminder(this@MainActivity, reminder)
+                                    dao.delete(reminder)
+                                }
+                            },
+                            modifier = Modifier.padding(innerPadding)
+                        )
+                    } else {
+                        GymScreen(
+                            workouts = workouts,
+                            onAdd = { exercise, sets, reps, weight, rir ->
+                                scope.launch {
+                                    workoutDao.insert(
+                                        Workout(
+                                            exercise = exercise,
+                                            sets = sets,
+                                            reps = reps,
+                                            weight = weight,
+                                            rir = rir
+                                        )
+                                    )
+                                }
+                            },
+                            onDelete = { workout ->
+                                scope.launch { workoutDao.delete(workout) }
+                            },
+                            modifier = Modifier.padding(innerPadding)
+                        )
+                    }
                 }
             }
         }
@@ -91,6 +182,7 @@ fun ReminderHomescreen(
     onDelete: (Reminder) -> Unit,
     modifier: Modifier = Modifier
 ) {
+
     var showForm by remember { mutableStateOf(false) }
     var titleText by remember { mutableStateOf("") }
     var pickedHour by remember { mutableIntStateOf((-1)) }

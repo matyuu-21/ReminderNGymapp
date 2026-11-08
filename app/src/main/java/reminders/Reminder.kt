@@ -1,4 +1,4 @@
-package com.example.remindergym
+package com.example.remindergym.reminders
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
